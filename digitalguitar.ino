@@ -1,6 +1,4 @@
-// FastLED_NeoMatrix example for single NeoPixel Shield.
-// By Marc MERLIN <marc_soft@merlins.org>
-// Contains code (c) Adafruit, license BSD
+//Digital Guitar by James Garrard
 
 #include <Adafruit_GFX.h>
 #include <FastLED_NeoMatrix.h>
