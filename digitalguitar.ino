@@ -15,7 +15,7 @@ const uint8_t rowPins[] = {21,8,9,10,11,12};
 
 // Max is 255, 32 is a conservative value to not overload
 // a USB power supply (500mA) for 12x12 pixels.
-#define BRIGHTNESS 60
+#define BRIGHTNESS 128
 
 
 #define ROW 6
@@ -24,7 +24,7 @@ const uint8_t rowPins[] = {21,8,9,10,11,12};
 CRGB leds[NUMMATRIX];
 // Define matrix width and height.
 FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, ROW, COL, 
-  NEO_MATRIX_BOTTOM     + NEO_MATRIX_LEFT +
+  NEO_MATRIX_BOTTOM     + NEO_MATRIX_RIGHT +
     NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 
 // Color definitions
@@ -65,15 +65,29 @@ FretKey guitar[ROW][COL+1];
 const int tuningOffset [] = {7, 0, 5, 10, 2, 7};
 const int octiveOffset [] = {2,2,3,3,3,4};
 
+void setupTuning(){
+  int note = 0;
+  int octive = 0;
+
+  for (uint8_t row=0; row<ROW; row++) {//Set guitar strings
+    note = tuningOffset[5-row];//fret and string 0,0 is high E
+    octive = octiveOffset[5-row];
+    for (uint8_t col=0; col<COL+1; col++) {//Set guitar frets off by one for open string note hovering column 
+      guitar[row][col] = FretKey(COLORS[note], note, row, col, octive);
+      note++;
+      note %= 12;
+      if(note == C){//C is where the octive raises
+        octive++;
+      }            
+    }
+  }  
+}
+
 void setup() {
   //Setup keyboard
   //Keyboard col port output
   DDRC |= 0x0F;
   PORTC = B00000001;
-  //Keyboard row input
-  // for(uint8_t y=0;y<ROW;y++){
-  //   pinMode(rowPins[y],INPUT);
-  // }
 
   //String Pins
   pinMode(A7, INPUT);
@@ -118,7 +132,15 @@ void setup() {
 int strumCounter[6] = {-1};
 
 void loop() {  
-  //
+  //draw fretkey lights based on tuning
+  for (uint8_t i=0; i<ROW; i++) {
+    for (uint8_t j=1; j<COL+1; j++) {//0 is the open fret which doesn't have an led on the hardware I have yet
+      //printf("%X\t",guitar[i][j-1].color);    
+      matrix->drawPixel(i,j-1,guitar[i][j].color);  
+    }
+  }
+
+  //Read FretKeys
   int handShape[ROW] ={0};
   for(uint8_t x=0;x<COL;x++){
     PORTC &= 0xF0; //clear the four bits we want to increment
@@ -129,41 +151,31 @@ void loop() {
       rowRead[i] = digitalRead(i+2);     
     }
     //set handshape iff the value isnt already assigned
-    for(uint8_t y=0;y<ROW;y++){
-      if (handShape[y] == 0){
-        if(rowRead[y]){
-          handShape[y] = COL - x;
+    for(uint8_t row=0;row<ROW;row++){
+      if (handShape[row] == 0){
+        if(rowRead[row]){
+          handShape[row] = COL - x;
+          matrix->drawPixel(row,handShape[row]-1,WHITE);
         }
       }
     }      
   }
 
-  //draw fretkey lights based on tuning
-  for (uint8_t i=0; i<ROW; i++) {
-    for (uint8_t j=1; j<COL+1; j++) {
-      //printf("%X\t",guitar[i][j-1].color);    
-      matrix->drawPixel(i,j-1,guitar[i][j-1].color);  
-    }
-  }
-
-  for(int i=0;i<ROW;i++){
-    if(digitalRead(rowPins[i])){
-        if(strumCounter[i] == -1){
-          strumCounter[i] = strumResponse;//
+  for(int row=0;row<ROW;row++){
+    if(digitalRead(rowPins[row])){
+        if(strumCounter[row] == -1){
+          strumCounter[row] = strumResponse;//
         }
-        else if(strumCounter[i] == 0){
-        }
-        else{
-          strumCounter[i]--;
+        else if(strumCounter[row] > 0){
+          strumCounter[row]--;
         }
     }
-    else if(strumCounter[i]>-1){
-      if(strumCounter[i]>0){
-        printf("Strum!%d",strumCounter[i]);
-        printf("%d\t",handShape[i]);
+    else if(strumCounter[row]>-1){
+      if(strumCounter[row]>0){
+        printf("Strum! I:%d N:%d O:%d\t",strumCounter[row],guitar[row][handShape[row]].note,guitar[row][handShape[row]].octive);
         printf("\n");             
       }
-     strumCounter[i] = -1;
+     strumCounter[row] = -1;
     } 
     
   //  //guitar[i][handShape[i]+1].setKeyWhite();
@@ -174,24 +186,4 @@ void loop() {
   matrix->show();
   delay(keyDelay);
   matrix->clear();
-}
-
-void setupTuning(){
-  int note = 0;
-  int octive = 0;
-
-  for (uint8_t row=0; row<ROW; row++) {//Set guitar strings
-    note = tuningOffset[5-row];//fret and string 0,0 is high E
-    octive = octiveOffset[5-row];
-    for (uint8_t col=0; col<COL+1; col++) {//Set guitar frets off by one for open string note hovering column 
-      guitar[row][col] = FretKey(COLORS[note], note, row, col, octive);
-      //printf("%d:%d %X\t",note,octive,COLORS[note]);
-      note++;
-      note %= 12;
-      if(note == C){//C is where the octive raises
-        octive++;
-      }            
-    }
-    //printf("\n");
-  }  
 }
