@@ -10,7 +10,6 @@ public:
   uint8_t row;
   uint8_t col;
   uint8_t octive;
-  static FastLED_NeoMatrix matrix;
 
   FretKey (){
     color = 0;
@@ -26,18 +25,6 @@ public:
     row = r;
     col = c;
     octive = o;    
-  }
-
-  void setKeyColor(){
-     matrix->drawPixel(row,col,color);
-  }
-
-  void setKeyWhite(){
-     matrix->drawPixel(row,col,WHITE);
-  }
-
-  static void setMatrix(FastLED_NeoMatrix &m){
-    matrix = m;
   }
 
 };
