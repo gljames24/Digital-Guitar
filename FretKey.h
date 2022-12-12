@@ -1,7 +1,3 @@
-#include <Adafruit_GFX.h>
-#include <FastLED_NeoMatrix.h>
-#include <FastLED.h>
-
 class FretKey{
 
 public:
