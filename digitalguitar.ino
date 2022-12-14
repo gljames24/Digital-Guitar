@@ -5,19 +5,16 @@
 #include <FastLED.h>
 #include <LibPrintf.h>
 #include "FretKey.h"
-#include <MIDI.h>
-
-// Allow temporaly dithering, does not work with ESP32 right now
+#include <MIDIUSB.h>
 
 #define delay FastLED.delay
 
-#define PIN 13
+#define LED_PIN 13
 const uint8_t stringPins[] = {0,12,11,10,9,8};
 const uint8_t colPins[] = {14,15,16,17};
 const uint8_t rowPins[] = {7,6,5,4,3,2};
 
-// Max is 255, 32 is a conservative value to not overload
-// a USB power supply (500mA) for 12x12 pixels.
+// Max is 255
 #define BRIGHTNESS 128
 
 // Define matrix width and height.
@@ -26,8 +23,8 @@ const uint8_t rowPins[] = {7,6,5,4,3,2};
 #define NUMMATRIX (ROW*COL)
 CRGB leds[NUMMATRIX];
 FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, ROW, COL, 
-  NEO_MATRIX_BOTTOM     + NEO_MATRIX_RIGHT +
-    NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
+  NEO_MATRIX_BOTTOM  + NEO_MATRIX_RIGHT +
+  NEO_MATRIX_COLUMNS + NEO_MATRIX_ZIGZAG);
 
 // Color definitions
 #define WHITE       0xFFFF
@@ -45,7 +42,7 @@ FastLED_NeoMatrix *matrix = new FastLED_NeoMatrix(leds, ROW, COL,
 #define ROSE        0xD80D
 #define BLACK       0x0000
 
-const uint16_t COLORS [] = {RED, ORANGE, YELLOW, CHARTREUSE, GREEN, MINT, CYAN, AZURE, BLUE, PURPLE, MAGENTA, ROSE};
+const uint16_t COLORS [] = {CHARTREUSE, GREEN, MINT, CYAN, AZURE, BLUE, PURPLE, MAGENTA, ROSE, RED, ORANGE, YELLOW};
 
 #define A   9
 #define Bb  10
@@ -53,7 +50,7 @@ const uint16_t COLORS [] = {RED, ORANGE, YELLOW, CHARTREUSE, GREEN, MINT, CYAN, 
 #define C   0
 #define Db  1
 #define D   2
-#define Ed  3
+#define Eb  3
 #define E   4
 #define F   5
 #define Gb  6
@@ -63,23 +60,24 @@ const uint16_t COLORS [] = {RED, ORANGE, YELLOW, CHARTREUSE, GREEN, MINT, CYAN, 
 FretKey guitar[ROW][COL+1];
 #define strumResponse 32
 #define keyDelay 5//millis
+
 //EADGBE tuning, would like to make adjustable in the future
 const int tuningOffset [] = {E, A, D, G, B, E};
-const int octiveOffset [] = {2,2,3,3,3,4};
+const int octaveOffset [] = {2,2,3,3,3,4};
 
 void setupTuning(){
   int note = 0;
-  int octive = 0;
+  int octave = 0;
 
   for (uint8_t row=0; row<ROW; row++) {//Set guitar strings
     note = tuningOffset[5-row];//fret and string 0,0 is high E
-    octive = octiveOffset[5-row];
+    octave = octaveOffset[5-row];
     for (uint8_t col=0; col<COL+1; col++) {//Set guitar frets off by one for open string note hovering column 
-      guitar[row][col] = FretKey(COLORS[note], note, row, col, octive);
+      guitar[row][col] = FretKey(COLORS[note], note, octave, row, col);
       note++;
       note %= 12;
-      if(note == C){//C is where the octive raises
-        octive++;
+      if(note == C){//C is where the octave raises
+        octave++;
       }            
     }
   }  
@@ -100,9 +98,9 @@ void setup() {
 
   delay(1000);
   Serial.begin(115200);
-  printf("Init on pin: %d\nMatrix Size: %d\n %d\n %d\n", PIN, ROW, COL, NUMMATRIX);
+  printf("Init on pin: %d\nMatrix Size: %d\n %d\n %d\n", LED_PIN, ROW, COL, NUMMATRIX);
 
-  FastLED.addLeds<NEOPIXEL,PIN>(leds, NUMMATRIX).setCorrection(TypicalLEDStrip);
+  FastLED.addLeds<NEOPIXEL,LED_PIN>(leds, NUMMATRIX).setCorrection(TypicalLEDStrip);
     Serial.print("Setup serial: ");
     Serial.println(NUMMATRIX);
 
@@ -111,6 +109,7 @@ void setup() {
   matrix->setBrightness(BRIGHTNESS);
   Serial.println("If the code crashes here, decrease the brightness or turn off the all white display below");
 
+  //Boot Up Splash Screen Color Test
   for (uint8_t i=0; i<ROW; i++) {
     for (uint8_t j=1; j<COL+1; j++) {
       matrix->drawPixel(i,j-1,COLORS[(j-1)%12]);
@@ -165,14 +164,12 @@ void loop() {
     }
     else if(strumCounter[row]>-1){
       if(strumCounter[row]>0){
-        printf("Strum! I:%d N:%d C:1 R:%d",strumCounter[row],guitar[row][handShape[row]].note + (guitar[row][handShape[row]].octive * 12),row);
+        printf("Strum! I:%d N:%d C:1 R:%d", strumCounter[row], guitar[row][handShape[row]].pitch, row);
         printf("\n");             
       }
      strumCounter[row] = -1;
     } 
   }
-   
-  
 
   matrix->show();
   delay(keyDelay);
